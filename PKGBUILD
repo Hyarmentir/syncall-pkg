@@ -28,9 +28,7 @@ build() {
   # Create a virtual environment using python3.11
   python3.11 -m venv venv
 
-  # Activate the venv and install poetry and then the project dependencies
-  # Using poetry lock ensures you get the exact dependency versions from the lock file
-  # which is crucial for avoiding the incompatibilities you mentioned.
+  # Activate the venv and install pip and poetry and then the project dependencies
   source venv/bin/activate
   python3.11 -m ensurepip --upgrade 
   pip install poetry
