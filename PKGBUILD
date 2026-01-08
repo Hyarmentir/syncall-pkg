@@ -1,55 +1,57 @@
-# Maintainer: "Gustav Åkerström <gustavakerstrom@gmail.com>"
-# Contributor: "Sergey Malkin <adresatt@gmail.com>"
-
-pkgname=syncall-gtasks-tw
-_gitname="syncall-gtasks-tw"
-pkgver=r242.7d32371
+# Maintainer: Your Name <your.email@example.com>
+pkgname=syncall
+_pkgname=syncall
+pkgver=1.8.8 # Replace with the actual version you want to package
 pkgrel=1
-pkgdesc="Bi-directional synchronization between services such as Taskwarrior, Google Calendar, Notion, Asana, and more"
-url="https://github.com/Hyarmentir/syncall-gtasks-tw"
-arch=("i686" "x86_64")
-license=("MIT")
-depends=(
-  "python>=3.8" "python-yaml>=5.3.1" "python-bidict>=0.21.4" "python-click>=8.1.7"
-  "python-loguru>=0.5.3" "python-dateutil>=2.9.0" "python-item_synchronizer>=1.1.5" 
-  "python-bubop>=0.1.12" "python-setuptools>=72.1.0"
-  "python-google-api-python-client"
-  "python-google-auth-oauthlib"
-  "python-taskw-ng=0.2.7"
-  "python-xdg-base-dirs"
-)
-makedepends=(
-  "python-installer" "python-poetry"
-  )
-optdepends=(
-  "python-asana>=1.0.0" 
-  "python-caldav>=0.11.0" 
-  "python-icalendar>=5.0.13"
-  "task>=2.6"
-  "python-xattr>=0.99.9"
-  "python-gkeepapi"
-  "python-notion-client"
-)
+pkgdesc="Versatile bi-directional synchronization tool"
+arch=('any')
+url="https://github.com/bergercookie/syncall"
+license=('MIT')
+depends=('python311')
+makedepends=('git')
+source=("https://github.com/bergercookie/$pkgname/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('dde09bd575b7fa5827b5bc2bff380db674490a000f41e51e860b6ec8f14ce6d6')
 
-provides=("syncall")
-conflicts=("syncall")
+#prepare() {
+#  cd "$srcdir/$pkgname-$pkgver"#
 
-#source=("git+https://github.com/Hyarmentir/syncall-gtasks-tw")
-source=("git+file:///home/antoinen/workspace/syncall-gtasks-tw")
-sha256sums=('SKIP')
-
-pkgver() {
-  cd "$_gitname"
-  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
-}
+  # If you need to patch pyproject.toml for the xdg-base-dirs issue,
+  # or any other files, you would do it here.
+  # For example:
+  #sed -i 's/from xdg/from xdg_base_dirs/g' syncall/taskwarrior/taskwarrior_side.py
+  #sed -i 's/xdg/xdg-base-dirs/g' pyproject.toml"
+#
 
 build() {
-  cd "$srcdir/$_gitname"
-  poetry install --extras "google tw"
-  poetry build
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Create a virtual environment using python3.11
+  python3.11 -m venv venv
+
+  # Activate the venv and install poetry and then the project dependencies
+  # Using poetry lock ensures you get the exact dependency versions from the lock file
+  # which is crucial for avoiding the incompatibilities you mentioned.
+  source venv/bin/activate
+  python3.11 -m ensurepip --upgrade 
+  pip install poetry
+  poetry install --all-extras
 }
 
 package() {
-  cd "$srcdir/$_gitname"
-  python -m installer --destdir="$pkgdir" dist/*.whl
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Copy the application code and the virtual environment to the package directory
+  install -d "${pkgdir}/usr/share/${pkgname}"
+  cp -r . "${pkgdir}/usr/share/${pkgname}/"
+
+  # Create wrapper scripts for the executables in /usr/bin
+  install -d "${pkgdir}/usr/bin"
+  # Extract script names from pyproject.toml's [tool.poetry.scripts] section
+  scripts=$(awk '/^\[tool\.poetry\.scripts\]/{f=1;next} /^\[/{f=0} f&&/ = /{print $1}' pyproject.toml)
+  for script in $scripts; do
+    # Create a wrapper that executes the sync script with the venv's python
+    echo "#!/bin/sh" > "${pkgdir}/usr/bin/${script}"
+    echo "exec /usr/share/${pkgname}/venv/bin/python -m syncall.scripts.${script} \"\$@\"" >> "${pkgdir}/usr/bin/${script}"
+    chmod +x "${pkgdir}/usr/bin/${script}"
+  done
 }
